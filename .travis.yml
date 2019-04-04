@@ -1,22 +1,10 @@
 os: linux
 dist: xenial
 
+
 language: cpp
-compiler:
-  - clang
-  - gcc
+services:
+  - docker
 
 install:
-    - sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-      build-essential \
-      libjpeg-dev \
-      libpng-dev \
-      libglfw3-dev \
-      libglm-dev \
-      libx11-dev \
-      libomp-dev \
-      libegl1-mesa-dev \
-      pkg-config
-
-script:
-    - ./build.sh --headless
+  - docker build -t hsim .
