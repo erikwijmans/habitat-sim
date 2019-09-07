@@ -150,6 +150,10 @@ class PathFinder : public std::enable_shared_from_this<PathFinder> {
 
   bool isNavigable(const vec3f& pt, const float maxYDelta = 0.5) const;
 
+  float dtw(const std::vector<vec3f>& r,
+            const std::vector<vec3f>& q,
+            const int maxWarpDist);
+
   friend impl::ActionSpaceGraph;
 
  protected:

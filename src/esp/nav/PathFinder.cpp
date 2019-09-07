@@ -938,3 +938,37 @@ bool esp::nav::PathFinder::isNavigable(const vec3f& pt,
 
   return true;
 }
+
+float esp::nav::PathFinder::dtw(const std::vector<vec3f>& r,
+                                const std::vector<vec3f>& q,
+                                const int maxWarpDist) {
+  Eigen::MatrixXf C =
+      Eigen::MatrixXf::Constant(r.size() + 1, q.size() + 1, 1e5);
+  C(0, 0) = 0;
+
+  ShortestPath path;
+  for (int rowIdx = 1; rowIdx <= r.size(); ++rowIdx) {
+    for (int colIdx = 1; colIdx <= q.size(); ++colIdx) {
+      const int startRow = std::max(rowIdx - maxWarpDist + 1, 0);
+      const int startCol = std::max(colIdx - maxWarpDist + 1, 0);
+      int rowIdxStar, colIdxStar;
+      C.block(startRow, startCol,
+              std::min(maxWarpDist, static_cast<int>(C.rows())),
+              std::min(maxWarpDist, static_cast<int>(C.cols())))
+          .minCoeff(&rowIdxStar, &colIdxStar);
+      rowIdxStar += startRow;
+      colIdxStar += startCol;
+
+      path.requestedStart = r[rowIdx - 1];
+      path.requestedEnd = q[colIdx - 1];
+      findPath(path);
+      if (!std::isfinite(path.geodesicDistance)) {
+        path.geodesicDistance = 1e5;
+      }
+
+      C(rowIdx, colIdx) = path.geodesicDistance + C(rowIdxStar, colIdxStar);
+    }
+  }
+
+  return C(r.size(), q.size());
+}
