@@ -8,6 +8,7 @@
 #include <Magnum/Magnum.h>
 #include <Magnum/SceneGraph/SceneGraph.h>
 
+#include <Magnum/GL/Renderer.h>
 #include <Magnum/PythonBindings.h>
 #include <Magnum/SceneGraph/PythonBindings.h>
 
@@ -98,6 +99,9 @@ void initSimBindings(py::module& m) {
       .def("reconfigure", &Simulator::reconfigure, "configuration"_a)
       .def("reset", &Simulator::reset)
       .def("close", &Simulator::close)
+      .def("sync_objects", &Simulator::syncObjects)
+      .def("gl_flush",
+           [](const Simulator& self) { Magnum::GL::Renderer::flush(); })
       .def_property("pathfinder", &Simulator::getPathFinder,
                     &Simulator::setPathFinder)
       .def_property(

@@ -7,6 +7,7 @@
 
 #include "esp/core/esp.h"
 #include "esp/gfx/RenderCamera.h"
+#include "esp/gfx/WindowlessContext.h"
 #include "esp/scene/SceneGraph.h"
 #include "esp/sensor/VisualSensor.h"
 
@@ -25,7 +26,7 @@ class Renderer {
   /**
    * @brief Constructor
    */
-  explicit Renderer(Flags flags = {});
+  explicit Renderer(WindowlessContext* context, Flags flags = {});
 
   // draw the scene graph with the camera specified by user
   void draw(RenderCamera& camera,
@@ -36,6 +37,18 @@ class Renderer {
   void draw(sensor::VisualSensor& visualSensor,
             scene::SceneGraph& sceneGraph,
             RenderCamera::Flags flags = {RenderCamera::Flag::FrustumCulling});
+
+  // draw the scene graph with the visual sensor provided by user
+  // async
+  void drawAsync(sensor::VisualSensor& visualSensor,
+                 scene::SceneGraph& sceneGraph,
+                 const Mn::MutableImageView2D& view,
+                 RenderCamera::Flags flags = {
+                     RenderCamera::Flag::FrustumCulling});
+
+  void drawWait();
+
+  void startDrawJobs();
 
   /**
    * @brief Binds a @ref RenderTarget to the sensor

@@ -41,8 +41,8 @@ BulletRigidObject::BulletRigidObject(
     std::shared_ptr<std::map<const btCollisionObject*, int> >
         collisionObjToObjIds)
     : BulletBase(std::move(bWorld), std::move(collisionObjToObjIds)),
-      RigidObject(rigidBodyNode, objectId, resMgr),
-      MotionState(*rigidBodyNode) {}
+      RigidObject(rigidBodyNode, objectId, resMgr) {}
+// MotionState(*rigidBodyNode) {}
 
 BulletRigidObject::~BulletRigidObject() {
   if (!isActive()) {
@@ -58,6 +58,13 @@ BulletRigidObject::~BulletRigidObject() {
   collisionObjToObjIds_->erase(bObjectRigidBody_.get());
 
 }  //~BulletRigidObject
+
+void BulletRigidObject::updateNodes() {
+  if (isActive()) {
+    node().setTransformation(
+        Mn::Matrix4{bObjectRigidBody_->getWorldTransform()});
+  }
+};
 
 bool BulletRigidObject::initialization_LibSpecific() {
   // TODO: add is_dynamic flag
@@ -363,11 +370,11 @@ void BulletRigidObject::constructAndAddRigidBody(MotionType mt) {
   }
 
   //! Bullet rigid body setup
-  auto motionState =
-      (mt == MotionType::STATIC) ? nullptr : &(this->btMotionState());
+  /* auto motionState =
+      (mt == MotionType::STATIC) ? nullptr : &(this->btMotionState()); */
 
   btRigidBody::btRigidBodyConstructionInfo info =
-      btRigidBody::btRigidBodyConstructionInfo(mass, motionState,
+      btRigidBody::btRigidBodyConstructionInfo(mass, nullptr,
                                                bObjectShape_.get(), bInertia);
 
   if (!isCollidable_) {

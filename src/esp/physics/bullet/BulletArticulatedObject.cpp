@@ -231,14 +231,17 @@ Magnum::Matrix4 BulletArticulatedObject::getRootState() {
 }
 
 void BulletArticulatedObject::updateNodes() {
-  setRotationScalingFromBulletTransform(btMultiBody_->getBaseWorldTransform(),
-                                        &node());
+  if (btMultiBody_->isAwake()) {
+    setRotationScalingFromBulletTransform(btMultiBody_->getBaseWorldTransform(),
+                                          &node());
 
-  // update link transforms
-  for (auto& link : links_) {
-    setRotationScalingFromBulletTransform(
-        btMultiBody_->getLink(link.first).m_cachedWorldTransform,
-        &link.second->node());
+    // update link transforms
+    for (auto& link : links_) {
+      if (btMultiBody_->getLinkCollider(link.first)->isActive())
+        setRotationScalingFromBulletTransform(
+            btMultiBody_->getLink(link.first).m_cachedWorldTransform,
+            &link.second->node());
+    }
   }
 }
 

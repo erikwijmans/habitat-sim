@@ -36,8 +36,9 @@ namespace physics {
  * state with internal btRigidBody states
  */
 class BulletRigidObject : public BulletBase,
-                          public RigidObject,
-                          public Magnum::BulletIntegration::MotionState {
+                          public RigidObject
+                          // public Magnum::BulletIntegration::MotionState
+  {
  public:
   /**
    * @brief Constructor for a @ref BulletRigidObject.
@@ -191,6 +192,8 @@ class BulletRigidObject : public BulletBase,
       bObjectRigidBody_->applyTorqueImpulse(btVector3(impulse));
     }
   }
+
+  virtual void updateNodes() override;
 
   //============ Getter/setter function =============
 

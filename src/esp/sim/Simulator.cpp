@@ -137,7 +137,7 @@ void Simulator::reconfigure(const SimulatorConfiguration& cfg) {
       gfx::Renderer::Flags flags;
       if (!(*requiresTextures_))
         flags |= gfx::Renderer::Flag::NoTextures;
-      renderer_ = gfx::Renderer::create(flags);
+      renderer_ = gfx::Renderer::create(context_.get(), flags);
     }
 
     // (re) create scene instance
@@ -885,6 +885,12 @@ double Simulator::stepWorld(const double dt) {
     physicsManager_->stepPhysics(dt);
   }
   return getWorldTime();
+}
+
+void Simulator::syncObjects() {
+  if (physicsManager_ != nullptr) {
+    physicsManager_->syncObjects();
+  }
 }
 
 // get the simulated world time (0 if no physics enabled)

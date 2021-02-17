@@ -132,6 +132,8 @@ class RigidObject : public RigidBase {
         metadata::attributes::ObjectAttributes>();
   };
 
+  virtual void updateNodes(){};
+
  private:
   /**
    * @brief Finalize the initialization of this @ref RigidScene
