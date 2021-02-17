@@ -209,6 +209,7 @@ struct Renderer::Impl {
   }
 
   ~Impl() {
+    acquireGlContext();
     delete backgroundRenderer_;
     LOG(INFO) << "Deconstructing Renderer";
   }
