@@ -50,6 +50,7 @@ class Renderer {
 
   void startDrawJobs();
 
+  void acquireGlContext();
   /**
    * @brief Binds a @ref RenderTarget to the sensor
    */

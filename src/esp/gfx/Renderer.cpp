@@ -37,7 +37,7 @@ namespace gfx {
 
 struct BackgroundRenderThread {
   BackgroundRenderThread(WindowlessContext* context)
-      : context_{context}, exit_{0}, done_{0} {
+      : context_{context}, done_{0} {
     pthread_barrier_init(&startBarrier_, nullptr, 2);
     context_->release();
     t = std::thread(&BackgroundRenderThread::run, this);
@@ -47,7 +47,7 @@ struct BackgroundRenderThread {
   }
 
   ~BackgroundRenderThread() {
-    exit_.store(1);
+    task_ = Task::Exit;
     pthread_barrier_wait(&startBarrier_);
     t.join();
     pthread_barrier_destroy(&startBarrier_);
@@ -70,7 +70,79 @@ struct BackgroundRenderThread {
     jobsWaiting_ += 1;
   }
 
-  void startJobs() { pthread_barrier_wait(&startBarrier_); }
+  void startJobs() {
+    task_ = Task::Render;
+    pthread_barrier_wait(&startBarrier_);
+  }
+
+  void releaseContext() {
+    task_ = Task::ReleaseContext;
+    pthread_barrier_wait(&startBarrier_);
+    jobsWaiting_ = 1;
+    waitThread();
+  }
+
+  void threadRender() {
+    if (!threadOwnsContext_) {
+      context_->makeCurrentPlatform();
+      Mn::GL::Context::makeCurrent(threadContext_);
+      threadOwnsContext_ = true;
+    }
+
+    for (auto& job : jobs_) {
+      sensor::VisualSensor& sensor = std::get<0>(job);
+      scene::SceneGraph& sg = std::get<1>(job);
+      RenderCamera::Flags flags = std::get<3>(job);
+
+      if (!(flags & RenderCamera::Flag::ObjectsOnly))
+        sensor.renderTarget().renderEnter();
+
+      auto* camera = sensor.getRenderCamera();
+
+      for (auto& it : sg.getDrawableGroups()) {
+        // TODO: remove || true
+        if (it.second.prepareForDraw(*camera) || true) {
+          camera->draw(it.second, flags);
+        }
+      }
+
+      if (!(flags & RenderCamera::Flag::ObjectsOnly))
+        sensor.renderTarget().renderExit();
+    }
+
+    for (auto& job : jobs_) {
+      sensor::VisualSensor& sensor = std::get<0>(job);
+      const Mn::MutableImageView2D& view = std::get<2>(job);
+      RenderCamera::Flags flags = std::get<3>(job);
+      if (flags & RenderCamera::Flag::ObjectsOnly)
+        continue;
+
+      auto sensorType = sensor.specification()->sensorType;
+      if (sensorType == sensor::SensorType::Color)
+        sensor.renderTarget().readFrameRgba(view);
+
+      if (sensorType == sensor::SensorType::Depth)
+        sensor.renderTarget().readFrameDepth(view);
+
+      if (sensorType == sensor::SensorType::Semantic)
+        sensor.renderTarget().readFrameObjectId(view);
+    }
+
+    int jobsDone = jobs_.size();
+    jobs_.clear();
+    done_.fetch_add(jobsDone, std::memory_order_release);
+  }
+
+  void threadReleaseContext() {
+    if (threadOwnsContext_) {
+      Mn::GL::Context::makeCurrent(nullptr);
+      context_->releasePlatform();
+      threadOwnsContext_ = false;
+    }
+    done_.store(1, std::memory_order_release);
+  }
+
+  enum Task : unsigned int { Exit = 0, ReleaseContext = 1, Render = 2 };
 
   void run() {
     context_->makeCurrentPlatform();
@@ -79,80 +151,46 @@ struct BackgroundRenderThread {
       Mn::Fatal{} << "BackgroundRenderThread: Failed to create OpenGL context";
 
     Mn::GL::Context::makeCurrent(threadContext_);
+    threadOwnsContext_ = true;
 
     Mn::GL::Renderer::enable(Mn::GL::Renderer::Feature::DepthTest);
     Mn::GL::Renderer::enable(Mn::GL::Renderer::Feature::FaceCulling);
 
-    Mn::GL::Context::makeCurrent(nullptr);
-    context_->releasePlatform();
+    threadReleaseContext();
 
     done_.store(1, std::memory_order_release);
     while (true) {
       pthread_barrier_wait(&startBarrier_);
 
-      if (exit_.load() != 0)
+      switch (task_) {
+        case Task::Exit:
+          break;
+        case Task::ReleaseContext:
+          threadReleaseContext();
+          break;
+        case Task::Render:
+          threadRender();
+          break;
+      }
+
+      if (task_ == Task::Exit)
         break;
-
-      context_->makeCurrentPlatform();
-      Mn::GL::Context::makeCurrent(threadContext_);
-      for (auto& job : jobs_) {
-        sensor::VisualSensor& sensor = std::get<0>(job);
-        scene::SceneGraph& sg = std::get<1>(job);
-        RenderCamera::Flags flags = std::get<3>(job);
-
-        if (!(flags & RenderCamera::Flag::ObjectsOnly))
-          sensor.renderTarget().renderEnter();
-
-        auto* camera = sensor.getRenderCamera();
-
-        for (auto& it : sg.getDrawableGroups()) {
-          // TODO: remove || true
-          if (it.second.prepareForDraw(*camera) || true) {
-            camera->draw(it.second, flags);
-          }
-        }
-
-        if (!(flags & RenderCamera::Flag::ObjectsOnly))
-          sensor.renderTarget().renderExit();
-      }
-
-      for (auto& job : jobs_) {
-        sensor::VisualSensor& sensor = std::get<0>(job);
-        const Mn::MutableImageView2D& view = std::get<2>(job);
-        RenderCamera::Flags flags = std::get<3>(job);
-        if (flags & RenderCamera::Flag::ObjectsOnly)
-          continue;
-
-        auto sensorType = sensor.specification()->sensorType;
-        if (sensorType == sensor::SensorType::Color)
-          sensor.renderTarget().readFrameRgba(view);
-
-        if (sensorType == sensor::SensorType::Depth)
-          sensor.renderTarget().readFrameDepth(view);
-
-        if (sensorType == sensor::SensorType::Semantic)
-          sensor.renderTarget().readFrameObjectId(view);
-      }
-
-      Mn::GL::Context::makeCurrent(nullptr);
-      context_->releasePlatform();
-
-      int jobsDone = jobs_.size();
-      jobs_.clear();
-      done_.fetch_add(jobsDone, std::memory_order_release);
     };
+
+    threadReleaseContext();
 
     delete threadContext_;
   }
 
   WindowlessContext* context_;
 
-  std::atomic<int> exit_;
   std::atomic<int> done_;
   std::thread t;
   pthread_barrier_t startBarrier_;
 
+  bool threadOwnsContext_;
   Mn::Platform::GLContext* threadContext_;
+  Task task_;
   std::vector<std::tuple<std::reference_wrapper<sensor::VisualSensor>,
                          std::reference_wrapper<scene::SceneGraph>,
                          std::reference_wrapper<const Mn::MutableImageView2D>,
@@ -178,6 +216,7 @@ struct Renderer::Impl {
   void draw(RenderCamera& camera,
             scene::SceneGraph& sceneGraph,
             RenderCamera::Flags flags) {
+    acquireGlContext();
     for (auto& it : sceneGraph.getDrawableGroups()) {
       // TODO: remove || true
       if (it.second.prepareForDraw(camera) || true) {
@@ -205,9 +244,11 @@ struct Renderer::Impl {
 
   void startDrawJobs() { backgroundRenderer_->startJobs(); }
 
-  void drawWait() {
-    backgroundRenderer_->waitThread();
+  void drawWait() { backgroundRenderer_->waitThread(); }
+
+  void acquireGlContext() {
     if (!contextIsOwned_) {
+      backgroundRenderer_->releaseContext();
       context_->makeCurrent();
       contextIsOwned_ = true;
     }
@@ -267,6 +308,10 @@ void Renderer::drawWait() {
 
 void Renderer::startDrawJobs() {
   pimpl_->startDrawJobs();
+}
+
+void Renderer::acquireGlContext() {
+  pimpl_->acquireGlContext();
 }
 
 void Renderer::bindRenderTarget(sensor::VisualSensor& sensor) {

@@ -100,6 +100,7 @@ void initGfxBindings(py::module& m) {
           "flags"_a = RenderCamera::Flag{RenderCamera::Flag::FrustumCulling})
       .def("draw_wait", &Renderer::drawWait)
       .def("start_draw_jobs", &Renderer::startDrawJobs)
+      .def("acquire_gl_context", &Renderer::acquireGlContext)
       .def(
           "draw",
           [](Renderer& self, RenderCamera& camera,

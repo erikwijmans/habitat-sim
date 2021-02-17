@@ -115,6 +115,8 @@ class Simulator(SimulatorBackend):
         self.__set_from_config(self.config)
 
     def close(self) -> None:
+        self.renderer.acquire_gl_context()
+
         for agent_sensorsuite in self.__sensors:
             for sensor in agent_sensorsuite.values():
                 sensor.close()
@@ -375,6 +377,7 @@ class Simulator(SimulatorBackend):
             return_single = False
 
         self.sync_objects()
+        self.renderer.acquire_gl_context()
         for agent_id in agent_ids:
             agent_sensorsuite = self.__sensors[agent_id]
             for _sensor_uuid, sensor in agent_sensorsuite.items():
