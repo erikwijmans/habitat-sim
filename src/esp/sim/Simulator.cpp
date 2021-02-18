@@ -137,6 +137,8 @@ void Simulator::reconfigure(const SimulatorConfiguration& cfg) {
       gfx::Renderer::Flags flags;
       if (!(*requiresTextures_))
         flags |= gfx::Renderer::Flag::NoTextures;
+      if (context_)
+        flags |= gfx::Renderer::Flag::BackgroundThread;
       renderer_ = gfx::Renderer::create(context_.get(), flags);
     }
 

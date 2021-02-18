@@ -184,6 +184,8 @@ uint32_t RenderCamera::draw(
         drawableTransforms.end());
   }
 
+  MagnumCamera::draw(drawableTransforms);
+
   if (useDrawableIds_) {
     useDrawableIds_ = false;
   }

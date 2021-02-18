@@ -16,8 +16,9 @@ namespace gfx {
 
 class Renderer {
  public:
-  enum class Flag {
+  enum class Flag : unsigned int {
     NoTextures = 1 << 0,
+    BackgroundThread = 1 << 1
   };
 
   typedef Corrade::Containers::EnumSet<Flag> Flags;
