@@ -227,8 +227,11 @@ struct BackgroundRenderThread {
       scene::SceneGraph& sg = std::get<1>(job);
       RenderCamera::Flags flags = std::get<3>(job);
 
-      scene::preOrderTraversalWithCallback(
-          sg.getRootNode(), [](scene::SceneNode& node) { node.setClean(); });
+      scene::preOrderTraversalWithCallback(sg.getRootNode(),
+                                           [](scene::SceneNode& node) {
+                                             if (node.children().isEmpty())
+                                               node.setClean();
+                                           });
 
       auto* camera = sensor.getRenderCamera();
       for (auto& it : sg.getDrawableGroups()) {
