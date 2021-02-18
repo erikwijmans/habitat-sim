@@ -41,8 +41,8 @@ BulletRigidObject::BulletRigidObject(
     std::shared_ptr<std::map<const btCollisionObject*, int> >
         collisionObjToObjIds)
     : BulletBase(std::move(bWorld), std::move(collisionObjToObjIds)),
-      RigidObject(rigidBodyNode, objectId, resMgr) {}
-// MotionState(*rigidBodyNode) {}
+      RigidObject(rigidBodyNode, objectId, resMgr),
+      MotionState(*rigidBodyNode) {}
 
 BulletRigidObject::~BulletRigidObject() {
   if (!isActive()) {
@@ -370,11 +370,11 @@ void BulletRigidObject::constructAndAddRigidBody(MotionType mt) {
   }
 
   //! Bullet rigid body setup
-  /* auto motionState =
-      (mt == MotionType::STATIC) ? nullptr : &(this->btMotionState()); */
+  auto motionState =
+      (mt == MotionType::STATIC) ? nullptr : &(this->btMotionState());
 
   btRigidBody::btRigidBodyConstructionInfo info =
-      btRigidBody::btRigidBodyConstructionInfo(mass, nullptr,
+      btRigidBody::btRigidBodyConstructionInfo(mass, motionState,
                                                bObjectShape_.get(), bInertia);
 
   if (!isCollidable_) {

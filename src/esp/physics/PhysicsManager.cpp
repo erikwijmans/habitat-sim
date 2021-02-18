@@ -240,13 +240,8 @@ void PhysicsManager::stepPhysics(double dt) {
     }
     worldTime_ += fixedTimeStep_;
   }
-}
-
-void PhysicsManager::syncObjects() {
   // update the multi-body SceneNodes TODO: could the be wrapped into some
   // automated update?
-  for (auto& o : existingObjects_)
-    o.second->updateNodes();
   for (auto& ao : existingArticulatedObjects_) {
     ao.second->updateNodes();
   }

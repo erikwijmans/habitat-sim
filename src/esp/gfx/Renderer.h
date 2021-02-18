@@ -47,6 +47,7 @@ class Renderer {
                      RenderCamera::Flag::FrustumCulling});
 
   void drawWait();
+  void waitSG();
 
   void startDrawJobs();
 

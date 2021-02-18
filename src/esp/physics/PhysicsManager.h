@@ -579,8 +579,6 @@ class PhysicsManager {
    */
   virtual void stepPhysics(double dt = 0.0);
 
-  virtual void syncObjects();
-
   // =========== Global Setter functions ===========
 
   /** @brief Set the @ref fixedTimeStep_ of the physical world. See @ref

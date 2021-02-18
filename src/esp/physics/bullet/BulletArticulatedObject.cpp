@@ -230,14 +230,14 @@ Magnum::Matrix4 BulletArticulatedObject::getRootState() {
   return Magnum::Matrix4{btMultiBody_->getBaseWorldTransform()};
 }
 
-void BulletArticulatedObject::updateNodes() {
-  if (btMultiBody_->isAwake()) {
+void BulletArticulatedObject::updateNodes(bool force /*=false*/) {
+  if (force || btMultiBody_->isAwake()) {
     setRotationScalingFromBulletTransform(btMultiBody_->getBaseWorldTransform(),
                                           &node());
 
     // update link transforms
     for (auto& link : links_) {
-      if (btMultiBody_->getLinkCollider(link.first)->isActive())
+      if (force || btMultiBody_->getLinkCollider(link.first)->isActive())
         setRotationScalingFromBulletTransform(
             btMultiBody_->getLink(link.first).m_cachedWorldTransform,
             &link.second->node());
@@ -341,7 +341,7 @@ void BulletArticulatedObject::setRootState(const Magnum::Matrix4& state) {
   btMultiBody_->forwardKinematics(scratch_q, scratch_m);
   btMultiBody_->updateCollisionObjectWorldTransforms(scratch_q, scratch_m);
   // sync visual shapes
-  updateNodes();
+  updateNodes(true);
 }
 
 void BulletArticulatedObject::setForces(const std::vector<float>& forces) {
@@ -431,7 +431,7 @@ void BulletArticulatedObject::setPositions(
   btMultiBody_->forwardKinematics(scratch_q, scratch_m);
   btMultiBody_->updateCollisionObjectWorldTransforms(scratch_q, scratch_m);
   // sync visual shapes
-  updateNodes();
+  updateNodes(true);
 }
 
 std::vector<float> BulletArticulatedObject::getPositions() {
@@ -479,7 +479,7 @@ void BulletArticulatedObject::reset() {
   btMultiBody_->clearVelocities();
   btMultiBody_->clearForcesAndTorques();
   // sync visual shapes
-  updateNodes();
+  updateNodes(true);
 }
 
 void BulletArticulatedObject::setSleep(bool sleep) {

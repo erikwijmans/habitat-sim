@@ -151,6 +151,12 @@ class RenderCamera : public MagnumCamera {
    */
   uint32_t draw(MagnumDrawableGroup& drawables, Flags flags = {});
 
+  uint32_t draw(
+      std::vector<
+          std::pair<std::reference_wrapper<Magnum::SceneGraph::Drawable3D>,
+                    Magnum::Matrix4>>& drawableTransforms,
+      Flags flags = {});
+
   /**
    * @brief performs the frustum culling
    * @param drawableTransforms, a vector of pairs of Drawable3D object and its

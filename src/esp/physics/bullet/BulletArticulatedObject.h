@@ -77,7 +77,7 @@ class BulletArticulatedObject : public ArticulatedObject {
   virtual Magnum::Matrix4 getRootState() override;
 
   // update the SceneNode state to match the simulation state
-  virtual void updateNodes() override;
+  virtual void updateNodes(bool force = false) override;
 
   virtual void setRootState(const Magnum::Matrix4& state) override;
 
@@ -171,7 +171,9 @@ class BulletArticulatedObject : public ArticulatedObject {
           materials,
       gfx::DrawableGroup* drawables) override;
 
+  bool bulletDirty_ = true;
   std::shared_ptr<btMultiBodyDynamicsWorld> bWorld_;
+
 
   std::unique_ptr<btCompoundShape> bFixedObjectShape_;
   std::unique_ptr<btRigidBody> bFixedObjectRigidBody_;

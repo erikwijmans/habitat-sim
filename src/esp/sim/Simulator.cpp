@@ -887,12 +887,6 @@ double Simulator::stepWorld(const double dt) {
   return getWorldTime();
 }
 
-void Simulator::syncObjects() {
-  if (physicsManager_ != nullptr) {
-    physicsManager_->syncObjects();
-  }
-}
-
 // get the simulated world time (0 if no physics enabled)
 double Simulator::getWorldTime() {
   if (physicsManager_ != nullptr) {

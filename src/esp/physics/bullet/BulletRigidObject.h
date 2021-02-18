@@ -36,8 +36,8 @@ namespace physics {
  * state with internal btRigidBody states
  */
 class BulletRigidObject : public BulletBase,
-                          public RigidObject
-                          // public Magnum::BulletIntegration::MotionState
+                          public RigidObject,
+                          public Magnum::BulletIntegration::MotionState
   {
  public:
   /**

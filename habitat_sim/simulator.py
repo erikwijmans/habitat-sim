@@ -319,13 +319,13 @@ class Simulator(SimulatorBackend):
         if isinstance(agent_ids, int):
             agent_ids = [agent_ids]
 
-        self.sync_objects()
         for agent_id in agent_ids:
             agent_sensorsuite = self.__sensors[agent_id]
             for _sensor_uuid, sensor in agent_sensorsuite.items():
                 sensor.draw_observation_async()
 
         self.renderer.start_draw_jobs()
+        self.renderer.wait_scene_graph()
 
     def get_sensor_observations_async_finish(
         self, agent_ids: Union[int, List[int]] = 0
@@ -376,7 +376,6 @@ class Simulator(SimulatorBackend):
         else:
             return_single = False
 
-        self.sync_objects()
         self.renderer.acquire_gl_context()
         for agent_id in agent_ids:
             agent_sensorsuite = self.__sensors[agent_id]
