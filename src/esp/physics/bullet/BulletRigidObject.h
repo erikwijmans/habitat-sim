@@ -36,8 +36,8 @@ namespace physics {
  * state with internal btRigidBody states
  */
 class BulletRigidObject : public BulletBase,
-                          public RigidObject,
-                          public Magnum::BulletIntegration::MotionState
+                          public RigidObject
+                          // public Magnum::BulletIntegration::MotionState
   {
  public:
   /**
@@ -193,7 +193,7 @@ class BulletRigidObject : public BulletBase,
     }
   }
 
-  virtual void updateNodes() override;
+  virtual void updateNodes(bool force = false) override;
 
   //============ Getter/setter function =============
 

@@ -240,11 +240,14 @@ void PhysicsManager::stepPhysics(double dt) {
     }
     worldTime_ += fixedTimeStep_;
   }
-  // update the multi-body SceneNodes TODO: could the be wrapped into some
-  // automated update?
-  for (auto& ao : existingArticulatedObjects_) {
-    ao.second->updateNodes();
-  }
+}
+
+void PhysicsManager::updateNodes(bool force) {
+  for (auto& o : existingObjects_)
+    o.second->updateNodes(force);
+
+  for (auto& ao : existingArticulatedObjects_)
+    ao.second->updateNodes(force);
 }
 
 //! Profile function. In BulletPhysics stationary objects are

@@ -254,12 +254,6 @@ void BulletPhysicsManager::stepPhysics(double dt) {
     }
   }
 #endif
-
-  // update the multi-body SceneNodes TODO: could the be wrapped into some
-  // automated update?
-  for (auto& ao : existingArticulatedObjects_) {
-    ao.second->updateNodes();
-  }
 }
 
 void BulletPhysicsManager::setMargin(const int physObjectID,

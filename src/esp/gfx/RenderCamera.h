@@ -43,6 +43,11 @@ class RenderCamera : public MagnumCamera {
   typedef Corrade::Containers::EnumSet<Flag> Flags;
   CORRADE_ENUMSET_FRIEND_OPERATORS(Flags)
 
+  typedef std::vector<
+      std::pair<std::reference_wrapper<Magnum::SceneGraph::Drawable3D>,
+                Magnum::Matrix4>>
+      DrawableTransforms;
+
   /**
    * @brief Constructor
    * @param node, the scene node to which the camera is attached
@@ -151,11 +156,7 @@ class RenderCamera : public MagnumCamera {
    */
   uint32_t draw(MagnumDrawableGroup& drawables, Flags flags = {});
 
-  uint32_t draw(
-      std::vector<
-          std::pair<std::reference_wrapper<Magnum::SceneGraph::Drawable3D>,
-                    Magnum::Matrix4>>& drawableTransforms,
-      Flags flags = {});
+  uint32_t draw(DrawableTransforms& drawableTransforms, Flags flags = {});
 
   /**
    * @brief performs the frustum culling
@@ -167,9 +168,7 @@ class RenderCamera : public MagnumCamera {
    * The preferred way is to enable the frustum culling by calling @ref
    * setFrustumCullingEnabled and then call @ref draw
    */
-  size_t cull(std::vector<
-              std::pair<std::reference_wrapper<Magnum::SceneGraph::Drawable3D>,
-                        Magnum::Matrix4>>& drawableTransforms);
+  size_t cull(DrawableTransforms& drawableTransforms);
 
   /**
    * @brief Cull Drawables for SceneNodes which are not OBJECT type.
@@ -178,10 +177,9 @@ class RenderCamera : public MagnumCamera {
    * absolute transformation
    * @return the number of drawables that are not culled
    */
-  size_t removeNonObjects(
-      std::vector<
-          std::pair<std::reference_wrapper<Magnum::SceneGraph::Drawable3D>,
-                    Magnum::Matrix4>>& drawableTransforms);
+  size_t removeNonObjects(DrawableTransforms& drawableTransforms);
+
+  size_t filterTransformers(DrawableTransforms& drawableTransforms, Flags flags = {});
 
   /**
    * @brief if the "immediate" following rendering pass is to use drawable ids

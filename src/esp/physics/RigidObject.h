@@ -132,7 +132,7 @@ class RigidObject : public RigidBase {
         metadata::attributes::ObjectAttributes>();
   };
 
-  virtual void updateNodes(){};
+  virtual void updateNodes(CORRADE_UNUSED bool force){};
 
  private:
   /**

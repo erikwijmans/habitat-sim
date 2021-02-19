@@ -215,11 +215,8 @@ struct BackgroundRenderThread {
       threadOwnsContext_ = true;
     }
 
-    std::vector<std::unordered_map<
-        std::string,
-        std::vector<std::pair<
-            std::reference_wrapper<Mn::SceneGraph::Drawable3D>, Mn::Matrix4>>>>
-        jobTransforms(jobs_.size());
+    std::vector<std::vector<RenderCamera::DrawableTransforms>> jobTransforms(
+        jobs_.size());
 
     for (int i = 0; i < jobs_.size(); ++i) {
       auto& job = jobs_[i];
@@ -227,17 +224,14 @@ struct BackgroundRenderThread {
       scene::SceneGraph& sg = std::get<1>(job);
       RenderCamera::Flags flags = std::get<3>(job);
 
-      scene::preOrderTraversalWithCallback(sg.getRootNode(),
-                                           [](scene::SceneNode& node) {
-                                             if (node.children().isEmpty())
-                                               node.setClean();
-                                           });
-
       auto* camera = sensor.getRenderCamera();
+      jobTransforms[i].reserve(sg.getDrawableGroups().size());
       for (auto& it : sg.getDrawableGroups()) {
         it.second.prepareForDraw(*camera);
-        jobTransforms[i].emplace(it.first,
-                                 camera->drawableTransformations(it.second));
+        auto transforms = camera->drawableTransformations(it.second);
+        camera->filterTransformers(transforms, flags);
+
+        jobTransforms[i].emplace_back(std::move(transforms));
       }
     }
 
@@ -252,8 +246,8 @@ struct BackgroundRenderThread {
         sensor.renderTarget().renderEnter();
 
       auto* camera = sensor.getRenderCamera();
-      for (auto& it : jobTransforms[i]) {
-        camera->draw(it.second, flags);
+      for (auto& transforms : jobTransforms[i]) {
+        camera->draw(transforms, flags);
       }
 
       if (!(flags & RenderCamera::Flag::ObjectsOnly))
@@ -368,9 +362,6 @@ struct Renderer::Impl {
   void draw(RenderCamera& camera,
             scene::SceneGraph& sceneGraph,
             RenderCamera::Flags flags) {
-    scene::preOrderTraversalWithCallback(
-        sceneGraph.getRootNode(),
-        [](scene::SceneNode& node) { node.setClean(); });
     acquireGlContext();
     for (auto& it : sceneGraph.getDrawableGroups()) {
       // TODO: remove || true

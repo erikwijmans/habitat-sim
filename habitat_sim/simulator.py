@@ -325,7 +325,6 @@ class Simulator(SimulatorBackend):
                 sensor.draw_observation_async()
 
         self.renderer.start_draw_jobs()
-        self.renderer.wait_scene_graph()
 
     def get_sensor_observations_async_finish(
         self, agent_ids: Union[int, List[int]] = 0

@@ -885,8 +885,15 @@ void Simulator::setObjectSemanticId(uint32_t semanticId,
 double Simulator::stepWorld(const double dt) {
   if (physicsManager_ != nullptr) {
     physicsManager_->stepPhysics(dt);
+    renderer_->waitSG();
+    physicsManager_->updateNodes();
   }
   return getWorldTime();
+}
+
+void Simulator::updateRenderPositionsFromPhysics(bool force) {
+  if (physicsManager_)
+    physicsManager_->updateNodes(force);
 }
 
 // get the simulated world time (0 if no physics enabled)

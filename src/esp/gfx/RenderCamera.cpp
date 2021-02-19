@@ -121,6 +121,7 @@ size_t RenderCamera::cull(
         // obtain the absolute aabb
         auto& node = static_cast<scene::SceneNode&>(a.first.get().object());
         // This updates the AABB for dynamic objects if needed
+        node.setClean();
         const Mn::Range3D& aabb = node.getAbsoluteAABB();
 
         Cr::Containers::Optional<int> culledPlane =
@@ -135,9 +136,7 @@ size_t RenderCamera::cull(
   return (newEndIter - drawableTransforms.begin());
 }
 
-size_t RenderCamera::removeNonObjects(
-    std::vector<std::pair<std::reference_wrapper<Mn::SceneGraph::Drawable3D>,
-                          Mn::Matrix4>>& drawableTransforms) {
+size_t RenderCamera::removeNonObjects(DrawableTransforms& drawableTransforms) {
   auto newEndIter = std::remove_if(
       drawableTransforms.begin(), drawableTransforms.end(),
       [&](const std::pair<std::reference_wrapper<Mn::SceneGraph::Drawable3D>,
@@ -152,18 +151,31 @@ size_t RenderCamera::removeNonObjects(
   return (newEndIter - drawableTransforms.begin());
 }
 
-uint32_t RenderCamera::draw(
-    std::vector<
-        std::pair<std::reference_wrapper<Magnum::SceneGraph::Drawable3D>,
-                  Magnum::Matrix4>>& drawableTransforms,
-    Flags flags) {
+uint32_t RenderCamera::draw(DrawableTransforms& drawableTransforms,
+                            Flags flags) {
   previousNumVisibleDrawables_ = drawableTransforms.size();
 
-  if (flags == Flags()) {  // empty set
-    MagnumCamera::draw(drawableTransforms);
-    return drawableTransforms.size();
+  if (flags & Flag::UseDrawableIdAsObjectId) {
+    useDrawableIds_ = true;
   }
 
+  MagnumCamera::draw(drawableTransforms);
+
+  if (useDrawableIds_) {
+    useDrawableIds_ = false;
+  }
+
+  return drawableTransforms.size();
+}
+
+uint32_t RenderCamera::draw(MagnumDrawableGroup& drawables, Flags flags) {
+  auto drawableTransforms = drawableTransformations(drawables);
+  filterTransformers(drawableTransforms, flags);
+  return draw(drawableTransforms, flags);
+}
+
+size_t RenderCamera::filterTransformers(DrawableTransforms& drawableTransforms,
+                                        Flags flags) {
   if (flags & Flag::UseDrawableIdAsObjectId) {
     useDrawableIds_ = true;
   }
@@ -184,18 +196,11 @@ uint32_t RenderCamera::draw(
         drawableTransforms.end());
   }
 
-  MagnumCamera::draw(drawableTransforms);
-
   if (useDrawableIds_) {
     useDrawableIds_ = false;
   }
 
   return drawableTransforms.size();
-}
-
-uint32_t RenderCamera::draw(MagnumDrawableGroup& drawables, Flags flags) {
-  auto drawableTransforms = drawableTransformations(drawables);
-  return draw(drawableTransforms, flags);
 }
 
 esp::geo::Ray RenderCamera::unproject(const Mn::Vector2i& viewportPosition) {
