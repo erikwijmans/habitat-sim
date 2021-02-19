@@ -381,6 +381,9 @@ struct Renderer::Impl {
                  scene::SceneGraph& sceneGraph,
                  const Mn::MutableImageView2D& view,
                  RenderCamera::Flags flags) {
+    if (!backgroundRenderer_)
+      Mn::Fatal{} << "Renderer was not created with a background render "
+                     "thread, cannot do async drawing";
     if (contextIsOwned_) {
       context_->release();
       contextIsOwned_ = false;
@@ -388,11 +391,20 @@ struct Renderer::Impl {
     backgroundRenderer_->submitJob(visualSensor, sceneGraph, view, flags);
   }
 
-  void startDrawJobs() { backgroundRenderer_->startJobs(); }
+  void startDrawJobs() {
+    if (backgroundRenderer_)
+      backgroundRenderer_->startJobs();
+  }
 
-  void drawWait() { backgroundRenderer_->waitThread(); }
+  void drawWait() {
+    if (backgroundRenderer_)
+      backgroundRenderer_->waitThread();
+  }
 
-  void waitSG() { backgroundRenderer_->waitSG(); }
+  void waitSG() {
+    if (backgroundRenderer_)
+      backgroundRenderer_->waitSG();
+  }
 
   void acquireGlContext() {
     if (!contextIsOwned_) {
