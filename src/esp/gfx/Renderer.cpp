@@ -173,18 +173,19 @@ struct BackgroundRenderThread {
     pthread_barrier_destroy(&startBarrier_);
   }
 
-  void waitThread() {
-    while (done_.load(std::memory_order_acquire) != jobsWaiting_)
+  static inline void spinLock(const std::atomic<int>& lk, int tgt) {
+    while (lk.load(std::memory_order_acquire) != tgt)
       asm volatile("pause" ::: "memory");
+  }
+
+  void waitThread() {
+    spinLock(done_, jobsWaiting_);
 
     done_.store(0);
     jobsWaiting_ = 0;
   }
 
-  void waitSG() {
-    while (sgLock_.load(std::memory_order_acquire) == 1)
-      asm volatile("pause" ::: "memory");
-  }
+  void waitSG() { spinLock(sgLock_, 0); }
 
   void submitJob(sensor::VisualSensor& sensor,
                  scene::SceneGraph& sceneGraph,
@@ -210,6 +211,8 @@ struct BackgroundRenderThread {
 
   void threadRender() {
     if (!threadOwnsContext_) {
+      LOG(INFO) << "gfx::BackgroundRenderThread: Background thread acquiring "
+                   "GL context";
       context_->makeCurrentPlatform();
       Mn::GL::Context::makeCurrent(threadContext_);
       threadOwnsContext_ = true;
@@ -408,6 +411,7 @@ struct Renderer::Impl {
 
   void acquireGlContext() {
     if (!contextIsOwned_) {
+      LOG(INFO) << "gfx::Renderer: Main thread acquiring GL context";
       backgroundRenderer_->releaseContext();
       context_->makeCurrent();
       contextIsOwned_ = true;

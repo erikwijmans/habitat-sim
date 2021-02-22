@@ -52,6 +52,9 @@ Simulator::~Simulator() {
 }
 
 void Simulator::close() {
+  if (renderer_)
+    renderer_->acquireGlContext();
+
   pathfinder_ = nullptr;
   navMeshVisPrimID_ = esp::ID_UNDEFINED;
   navMeshVisNode_ = nullptr;
@@ -320,6 +323,8 @@ Simulator::setSceneInstanceAttributes(const std::string& activeSceneName) {
 bool Simulator::createSceneInstance(const std::string& activeSceneName) {
   // 1. initial setup for scene instancing - sets or creates the
   // current scene instance to correspond to the given name.
+  if (renderer_)
+    renderer_->acquireGlContext();
   metadata::attributes::SceneAttributes::cptr curSceneInstanceAttributes =
       setSceneInstanceAttributes(activeSceneName);
 
@@ -600,6 +605,8 @@ int Simulator::addObject(const int objectLibId,
                          scene::SceneNode* attachmentNode,
                          const std::string& lightSetupKey,
                          const int sceneID) {
+  if (renderer_)
+    renderer_->acquireGlContext();
   if (sceneHasPhysics(sceneID)) {
     // TODO: change implementation to support multi-world and physics worlds
     // to own reference to a sceneGraph to avoid this.
@@ -615,6 +622,8 @@ int Simulator::addObjectByHandle(const std::string& objectLibHandle,
                                  scene::SceneNode* attachmentNode,
                                  const std::string& lightSetupKey,
                                  const int sceneID) {
+  if (renderer_)
+    renderer_->acquireGlContext();
   if (sceneHasPhysics(sceneID)) {
     // TODO: change implementation to support multi-world and physics worlds
     // to own reference to a sceneGraph to avoid this.
@@ -868,6 +877,9 @@ void Simulator::setObjectBBDraw(bool drawBB,
                                 const int objectID,
                                 const int sceneID) {
   if (sceneHasPhysics(sceneID)) {
+    if (drawBB && renderer_)
+      renderer_->acquireGlContext();
+
     auto& sceneGraph_ = sceneManager_->getSceneGraph(activeSceneID_);
     auto& drawables = sceneGraph_.getDrawables();
     physicsManager_->setObjectBBDraw(objectID, &drawables, drawBB);
@@ -989,6 +1001,8 @@ bool Simulator::recomputeNavMesh(nav::PathFinder& pathfinder,
 }
 
 bool Simulator::setNavMeshVisualization(bool visualize) {
+  if (renderer_)
+    renderer_->acquireGlContext();
   // clean-up the NavMesh visualization if necessary
   if (!visualize && navMeshVisNode_ != nullptr) {
     delete navMeshVisNode_;
@@ -1027,6 +1041,8 @@ int Simulator::addTrajectoryObject(const std::string& trajVisName,
                                    const Magnum::Color4& color,
                                    bool smooth,
                                    int numInterp) {
+  if (renderer_)
+    renderer_->acquireGlContext();
   auto& sceneGraph_ = sceneManager_->getSceneGraph(activeSceneID_);
   auto& drawables = sceneGraph_.getDrawables();
 
@@ -1087,6 +1103,8 @@ void Simulator::sampleRandomAgentState(agent::AgentState& agentState) {
 scene::SceneNode* Simulator::loadAndCreateRenderAssetInstance(
     const assets::AssetInfo& assetInfo,
     const assets::RenderAssetInstanceCreationInfo& creation) {
+  if (renderer_)
+    renderer_->acquireGlContext();
   // Note this pattern of passing the scene manager and two scene ids to
   // resource manager. This is similar to ResourceManager::loadStage.
   std::vector<int> tempIDs{activeSceneID_, activeSemanticSceneID_};
@@ -1275,6 +1293,8 @@ int Simulator::addArticulatedObjectFromURDF(const std::string& filepath,
                                             float globalScale,
                                             float massScale,
                                             bool forceReload) {
+  if (renderer_)
+    renderer_->acquireGlContext();
   if (sceneHasPhysics(0)) {
     auto& sceneGraph_ = sceneManager_->getSceneGraph(activeSceneID_);
     auto& drawables = sceneGraph_.getDrawables();

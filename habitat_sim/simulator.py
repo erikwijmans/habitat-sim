@@ -115,7 +115,8 @@ class Simulator(SimulatorBackend):
         self.__set_from_config(self.config)
 
     def close(self) -> None:
-        self.renderer.acquire_gl_context()
+        if self.renderer is not None:
+            self.renderer.acquire_gl_context()
 
         for agent_sensorsuite in self.__sensors:
             for sensor in agent_sensorsuite.values():
