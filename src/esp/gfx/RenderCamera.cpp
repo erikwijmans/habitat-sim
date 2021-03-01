@@ -170,11 +170,11 @@ uint32_t RenderCamera::draw(DrawableTransforms& drawableTransforms,
 
 uint32_t RenderCamera::draw(MagnumDrawableGroup& drawables, Flags flags) {
   auto drawableTransforms = drawableTransformations(drawables);
-  filterTransformers(drawableTransforms, flags);
+  filterTransforms(drawableTransforms, flags);
   return draw(drawableTransforms, flags);
 }
 
-size_t RenderCamera::filterTransformers(DrawableTransforms& drawableTransforms,
+size_t RenderCamera::filterTransforms(DrawableTransforms& drawableTransforms,
                                         Flags flags) {
   if (flags & Flag::UseDrawableIdAsObjectId) {
     useDrawableIds_ = true;

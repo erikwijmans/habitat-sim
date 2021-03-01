@@ -179,7 +179,7 @@ class RenderCamera : public MagnumCamera {
    */
   size_t removeNonObjects(DrawableTransforms& drawableTransforms);
 
-  size_t filterTransformers(DrawableTransforms& drawableTransforms, Flags flags = {});
+  size_t filterTransforms(DrawableTransforms& drawableTransforms, Flags flags = {});
 
   /**
    * @brief if the "immediate" following rendering pass is to use drawable ids

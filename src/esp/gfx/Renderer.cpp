@@ -4,9 +4,8 @@
 
 #include "Renderer.h"
 
+#include <atomic_wait.h>
 #include <atomic>
-#include <condition_variable>
-#include <mutex>
 #include <queue>
 #include <thread>
 
@@ -31,161 +30,55 @@
 #include "esp/sensor/VisualSensor.h"
 
 namespace Mn = Magnum;
-#if defined(CORRADE_TARGET_APPLE)
-namespace {
-#include <pthread.h>
-
-#ifndef PTHREAD_BARRIER_SERIAL_THREAD
-#define PTHREAD_BARRIER_SERIAL_THREAD -1
-#endif
-
-typedef pthread_mutexattr_t pthread_barrierattr_t;
-
-/* structure for internal use that should be considered opaque */
-typedef struct {
-  pthread_mutex_t mutex;
-  pthread_cond_t cond;
-  unsigned count;
-  unsigned left;
-  unsigned round;
-} pthread_barrier_t;
-int pthread_barrier_init(pthread_barrier_t* __restrict barrier,
-                         const pthread_barrierattr_t* __restrict attr,
-                         unsigned count);
-int pthread_barrier_destroy(pthread_barrier_t* barrier);
-
-int pthread_barrier_wait(pthread_barrier_t* barrier);
-
-int pthread_barrierattr_init(pthread_barrierattr_t* attr);
-int pthread_barrierattr_destroy(pthread_barrierattr_t* attr);
-int pthread_barrierattr_getpshared(const pthread_barrierattr_t* __restrict attr,
-                                   int* __restrict pshared);
-int pthread_barrierattr_setpshared(pthread_barrierattr_t* attr, int pshared);
-
-int pthread_barrier_init(pthread_barrier_t* __restrict barrier,
-                         const pthread_barrierattr_t* __restrict attr,
-                         unsigned count) {
-  if (count == 0) {
-    return EINVAL;
-  }
-
-  int ret;
-
-  pthread_condattr_t condattr;
-  pthread_condattr_init(&condattr);
-  if (attr) {
-    int pshared;
-    ret = pthread_barrierattr_getpshared(attr, &pshared);
-    if (ret) {
-      return ret;
-    }
-    ret = pthread_condattr_setpshared(&condattr, pshared);
-    if (ret) {
-      return ret;
-    }
-  }
-
-  ret = pthread_mutex_init(&barrier->mutex, attr);
-  if (ret) {
-    return ret;
-  }
-
-  ret = pthread_cond_init(&barrier->cond, &condattr);
-  if (ret) {
-    pthread_mutex_destroy(&barrier->mutex);
-    return ret;
-  }
-
-  barrier->count = count;
-  barrier->left = count;
-  barrier->round = 0;
-
-  return 0;
-}
-
-int pthread_barrier_destroy(pthread_barrier_t* barrier) {
-  if (barrier->count == 0) {
-    return EINVAL;
-  }
-
-  barrier->count = 0;
-  int rm = pthread_mutex_destroy(&barrier->mutex);
-  int rc = pthread_cond_destroy(&barrier->cond);
-  return rm ? rm : rc;
-}
-
-int pthread_barrier_wait(pthread_barrier_t* barrier) {
-  pthread_mutex_lock(&barrier->mutex);
-  if (--barrier->left) {
-    unsigned round = barrier->round;
-    do {
-      pthread_cond_wait(&barrier->cond, &barrier->mutex);
-    } while (round == barrier->round);
-    pthread_mutex_unlock(&barrier->mutex);
-    return 0;
-  } else {
-    barrier->round += 1;
-    barrier->left = barrier->count;
-    pthread_cond_broadcast(&barrier->cond);
-    pthread_mutex_unlock(&barrier->mutex);
-    return PTHREAD_BARRIER_SERIAL_THREAD;
-  }
-}
-
-int pthread_barrierattr_init(pthread_barrierattr_t* attr) {
-  return pthread_mutexattr_init(attr);
-}
-
-int pthread_barrierattr_destroy(pthread_barrierattr_t* attr) {
-  return pthread_mutexattr_destroy(attr);
-}
-
-int pthread_barrierattr_getpshared(const pthread_barrierattr_t* __restrict attr,
-                                   int* __restrict pshared) {
-  return pthread_mutexattr_getpshared(attr, pshared);
-}
-
-int pthread_barrierattr_setpshared(pthread_barrierattr_t* attr, int pshared) {
-  return pthread_mutexattr_setpshared(attr, pshared);
-}
-
-}  // namespace
-#endif
 
 namespace esp {
 namespace gfx {
 
 struct BackgroundRenderThread {
   BackgroundRenderThread(WindowlessContext* context)
-      : context_{context}, done_{0}, sgLock_{0} {
-    pthread_barrier_init(&startBarrier_, nullptr, 2);
+      : context_{context}, done_{0}, sgLock_{0}, start_{0} {
     context_->release();
     t = std::thread(&BackgroundRenderThread::run, this);
+
     jobsWaiting_ = 1;
+    threadStarted_ = true;
     waitThread();
     context_->makeCurrent();
   }
 
-  ~BackgroundRenderThread() {
-    task_ = Task::Exit;
-    pthread_barrier_wait(&startBarrier_);
-    t.join();
-    pthread_barrier_destroy(&startBarrier_);
+  void startThread() {
+    std::atomic_thread_fence(std::memory_order_release);
+    start_.fetch_xor(1, std::memory_order_release);
+    std::atomic_notify_all(&start_);
+
+    threadStarted_ = true;
   }
 
-  static inline void spinLock(const std::atomic<int>& lk, int tgt) {
-    while (lk.load(std::memory_order_acquire) != tgt)
-      asm volatile("pause" ::: "memory");
+  ~BackgroundRenderThread() {
+    task_ = Task::Exit;
+    startThread();
+    t.join();
   }
 
   void waitThread() {
-    spinLock(done_, jobsWaiting_);
+    CORRADE_ASSERT(threadStarted_ || jobsWaiting_ == 0,
+                   "Thread is not started and there are jobs to be waited for! "
+                   " This would deadlock", );
+    if (jobsWaiting_ != 0) {
+      std::atomic_wait_explicit(&done_, 0, std::memory_order_acquire);
+
+      CORRADE_ASSERT(done_.load(std::memory_order_relaxed) == jobsWaiting_,
+                     "Did not finish the correct number of jobs", );
+    }
 
     done_.store(0);
     jobsWaiting_ = 0;
+    threadStarted_ = false;
   }
 
-  void waitSG() { spinLock(sgLock_, 0); }
+  void waitSG() {
+    std::atomic_wait_explicit(&sgLock_, 1, std::memory_order_acquire);
+  }
 
   void submitJob(sensor::VisualSensor& sensor,
                  scene::SceneGraph& sceneGraph,
@@ -199,20 +92,22 @@ struct BackgroundRenderThread {
   void startJobs() {
     task_ = Task::Render;
     sgLock_.store(1, std::memory_order_relaxed);
-    pthread_barrier_wait(&startBarrier_);
+    startThread();
   }
 
   void releaseContext() {
     task_ = Task::ReleaseContext;
-    pthread_barrier_wait(&startBarrier_);
+
+    startThread();
+
     jobsWaiting_ = 1;
     waitThread();
   }
 
-  void threadRender() {
+  int threadRender() {
     if (!threadOwnsContext_) {
-      LOG(INFO) << "gfx::BackgroundRenderThread: Background thread acquiring "
-                   "GL context";
+      VLOG(1)
+          << "BackgroundRenderThread:: Background thread acquired GL Context";
       context_->makeCurrentPlatform();
       Mn::GL::Context::makeCurrent(threadContext_);
       threadOwnsContext_ = true;
@@ -232,13 +127,14 @@ struct BackgroundRenderThread {
       for (auto& it : sg.getDrawableGroups()) {
         it.second.prepareForDraw(*camera);
         auto transforms = camera->drawableTransformations(it.second);
-        camera->filterTransformers(transforms, flags);
+        camera->filterTransforms(transforms, flags);
 
         jobTransforms[i].emplace_back(std::move(transforms));
       }
     }
 
     sgLock_.store(0, std::memory_order_release);
+    std::atomic_notify_all(&sgLock_);
 
     for (int i = 0; i < jobs_.size(); ++i) {
       auto& job = jobs_[i];
@@ -277,7 +173,7 @@ struct BackgroundRenderThread {
 
     int jobsDone = jobs_.size();
     jobs_.clear();
-    done_.fetch_add(jobsDone, std::memory_order_release);
+    return jobsDone;
   }
 
   void threadReleaseContext() {
@@ -286,7 +182,6 @@ struct BackgroundRenderThread {
       context_->releasePlatform();
       threadOwnsContext_ = false;
     }
-    done_.store(1, std::memory_order_release);
   }
 
   enum Task : unsigned int { Exit = 0, ReleaseContext = 1, Render = 2 };
@@ -304,36 +199,43 @@ struct BackgroundRenderThread {
     Mn::GL::Renderer::enable(Mn::GL::Renderer::Feature::FaceCulling);
 
     threadReleaseContext();
-
     done_.store(1, std::memory_order_release);
-    while (true) {
-      pthread_barrier_wait(&startBarrier_);
+    std::atomic_notify_all(&done_);
+
+    int oldStartVal = 0;
+    bool done = false;
+    while (!done) {
+      std::atomic_wait_explicit(&start_, oldStartVal,
+                                std::memory_order_acquire);
+
+      oldStartVal ^= 1;
 
       switch (task_) {
         case Task::Exit:
+          threadReleaseContext();
+          delete threadContext_;
+          done = true;
           break;
         case Task::ReleaseContext:
           threadReleaseContext();
+          done_.store(1, std::memory_order_acq_rel);
           break;
         case Task::Render:
-          threadRender();
+          const int jobsDone = threadRender();
+          done_.store(jobsDone, std::memory_order_acq_rel);
           break;
       }
 
-      if (task_ == Task::Exit)
-        break;
+      std::atomic_thread_fence(std::memory_order_release);
+      std::atomic_notify_all(&done_);
     };
-
-    threadReleaseContext();
-
-    delete threadContext_;
   }
 
   WindowlessContext* context_;
 
-  std::atomic<int> done_, sgLock_;
+  std::atomic<int> done_, sgLock_, start_;
   std::thread t;
-  pthread_barrier_t startBarrier_;
+  bool threadStarted_ = false;
 
   bool threadOwnsContext_;
   Mn::Platform::GLContext* threadContext_;

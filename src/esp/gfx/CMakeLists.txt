@@ -123,6 +123,11 @@ if(BUILD_GUI_VIEWERS)
   endif()
 endif()
 
+if (NOT CORRADE_TARGET_EMSCRIPTEN)
+  target_link_libraries(gfx PUBLIC atomic_wait)
+endif()
+
+
 # Link appropriate windowless library
 if(APPLE)
   find_package(Magnum REQUIRED WindowlessCglApplication)
