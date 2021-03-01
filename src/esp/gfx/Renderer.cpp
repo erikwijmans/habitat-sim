@@ -133,7 +133,7 @@ struct BackgroundRenderThread {
       }
     }
 
-    sgLock_.store(0, std::memory_order_release);
+    sgLock_.store(0, std::memory_order_acq_rel);
     std::atomic_notify_all(&sgLock_);
 
     for (int i = 0; i < jobs_.size(); ++i) {
