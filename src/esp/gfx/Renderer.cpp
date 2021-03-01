@@ -16,6 +16,7 @@
 #include <Magnum/GL/PixelFormat.h>
 #include <Magnum/GL/Renderbuffer.h>
 #include <Magnum/GL/RenderbufferFormat.h>
+#include <Magnum/GL/DebugOutput.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/GL/Texture.h>
 #include <Magnum/GL/TextureFormat.h>
@@ -214,6 +215,7 @@ struct BackgroundRenderThread {
         case Task::Exit:
           threadReleaseContext();
           delete threadContext_;
+          threadContext_ = nullptr;
           done = true;
           break;
         case Task::ReleaseContext:
@@ -229,6 +231,8 @@ struct BackgroundRenderThread {
       std::atomic_thread_fence(std::memory_order_release);
       std::atomic_notify_all(&done_);
     };
+CORRADE_INTERNAL_ASSERT(!threadOwnsContext_);
+CORRADE_INTERNAL_ASSERT(threadContext_ == nullptr);
   }
 
   WindowlessContext* context_;
@@ -253,6 +257,8 @@ struct Renderer::Impl {
       : context_{context}, depthShader_{nullptr}, flags_{flags} {
     Mn::GL::Renderer::enable(Mn::GL::Renderer::Feature::DepthTest);
     Mn::GL::Renderer::enable(Mn::GL::Renderer::Feature::FaceCulling);
+    Mn::GL::DebugOutput::setEnabled(
+    Mn::GL::DebugOutput::Source::Api, Mn::GL::DebugOutput::Type::Other, {131185}, false);
 
     if (flags & Flag::BackgroundThread)
       backgroundRenderer_ = new BackgroundRenderThread{context_};
@@ -313,7 +319,7 @@ struct Renderer::Impl {
 
   void acquireGlContext() {
     if (!contextIsOwned_) {
-      LOG(INFO) << "gfx::Renderer: Main thread acquiring GL context";
+      VLOG(1) << "gfx::Renderer: Main thread acquiring GL context";
       backgroundRenderer_->releaseContext();
       context_->makeCurrent();
       contextIsOwned_ = true;
