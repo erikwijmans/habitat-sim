@@ -29,6 +29,13 @@
 #include "esp/sensor/SensorFactory.h"
 #include "esp/sensor/VisualSensor.h"
 
+#ifdef ESP_BUILD_WITH_BULLET
+#include "esp/physics/bullet/BulletArticulatedObject.h"
+#include "BulletDynamics/Featherstone/btMultiBodyJointMotor.h"
+#include "BulletDynamics/Featherstone/btMultiBodyLinkCollider.h"
+#include "esp/physics/bullet/BulletURDFImporter.h"
+#endif
+
 namespace Cr = Corrade;
 
 namespace esp {
@@ -86,6 +93,10 @@ void Simulator::close(const bool destroy) {
 }
 
 void Simulator::reconfigure(const SimulatorConfiguration& cfg) {
+  physics::CollisionGroupHelper::disabled = !cfg.collisionFiltering;
+#ifdef ESP_BUILD_WITH_BULLET
+  physics::BulletArticulatedObject::disableRigidArtOpts = !cfg.rigidArtOpts;
+#endif
   // set metadata mediator's cfg  upon creation or reconfigure
   if (!metadataMediator_) {
     metadataMediator_ = metadata::MetadataMediator::create(cfg);

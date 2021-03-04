@@ -25,7 +25,9 @@ bool operator==(const SimulatorConfiguration& a,
          a.sceneDatasetConfigFile.compare(b.sceneDatasetConfigFile) == 0 &&
          a.physicsConfigFile.compare(b.physicsConfigFile) == 0 &&
          a.overrideSceneLightDefaults == b.overrideSceneLightDefaults &&
-         a.sceneLightSetup.compare(b.sceneLightSetup) == 0;
+         a.sceneLightSetup.compare(b.sceneLightSetup) == 0 &&
+         a.rigidArtOpts == b.rigidArtOpts &&
+         a.collisionFiltering == b.collisionFiltering;
 }
 
 bool operator!=(const SimulatorConfiguration& a,

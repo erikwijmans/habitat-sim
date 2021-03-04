@@ -55,6 +55,9 @@ struct SimulatorConfiguration {
   bool requiresTextures = true;
   std::string physicsConfigFile = ESP_DEFAULT_PHYSICS_CONFIG_REL_PATH;
 
+  bool collisionFiltering = true;
+  bool rigidArtOpts = true;
+
   /**
    * @brief File location for initial scene dataset to use.
    */

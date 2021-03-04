@@ -57,6 +57,7 @@ class BulletArticulatedLink : public ArticulatedLink, public BulletBase {
 
 class BulletArticulatedObject : public ArticulatedObject {
  public:
+  static bool disableRigidArtOpts;
   BulletArticulatedObject(
       scene::SceneNode* rootNode,
       assets::ResourceManager& resMgr,

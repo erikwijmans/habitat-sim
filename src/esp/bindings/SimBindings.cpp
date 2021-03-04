@@ -44,6 +44,9 @@ void initSimBindings(py::module& m) {
       .def_readwrite("default_camera_uuid",
                      &SimulatorConfiguration::defaultCameraUuid)
       .def_readwrite("gpu_device_id", &SimulatorConfiguration::gpuDeviceId)
+      .def_readwrite("rigid_art_opts", &SimulatorConfiguration::rigidArtOpts)
+      .def_readwrite("collision_filtering",
+                     &SimulatorConfiguration::collisionFiltering)
       .def_readwrite("allow_sliding", &SimulatorConfiguration::allowSliding)
       .def_readwrite("create_renderer", &SimulatorConfiguration::createRenderer)
       .def_readwrite("frustum_culling", &SimulatorConfiguration::frustumCulling)

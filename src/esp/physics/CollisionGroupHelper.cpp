@@ -8,6 +8,7 @@
 
 namespace esp {
 namespace physics {
+bool CollisionGroupHelper::disabled = false;
 
 /*
   enum class CollisionGroup {
@@ -21,6 +22,9 @@ namespace physics {
 */
 
 int CollisionGroupHelper::getMaskForGroup(CollisionGroup group) {
+  if (disabled)
+      return -1 & ~int(CollisionGroup::Noncollidable);
+
   // TODO: refactor this in terms of enabling collision between specific pairs
   // of groups
   switch (group) {

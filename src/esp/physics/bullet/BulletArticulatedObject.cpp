@@ -4,6 +4,7 @@
 
 // Construction code adapted from Bullet3/examples/
 
+#include <iostream>
 #include "BulletArticulatedObject.h"
 #include "BulletDynamics/Featherstone/btMultiBodyJointMotor.h"
 #include "BulletDynamics/Featherstone/btMultiBodyLinkCollider.h"
@@ -16,6 +17,8 @@ namespace Cr = Corrade;
 
 namespace esp {
 namespace physics {
+
+bool BulletArticulatedObject::disableRigidArtOpts = false;
 
 // set node state from btTransform
 // TODO: this should probably be moved
@@ -143,48 +146,51 @@ bool BulletArticulatedObject::initializeFromURDF(
     bWorld_->addMultiBody(btMultiBody_.get());
     btMultiBody_->setCanSleep(true);
 
-    bFixedObjectShape_ = std::make_unique<btCompoundShape>();
+    if (!disableRigidArtOpts) {
+      bFixedObjectShape_ = std::make_unique<btCompoundShape>();
 
-    // By convention, fixed links in the URDF are assigned Noncollidable, and we
-    // then insert corresponding fixed rigid bodies with group Static.
-    // Collisions with a fixed rigid body are cheaper than collisions with a
-    // fixed link, due to problems with multibody sleeping behavior.
-    {
-      auto* col = mb->getBaseCollider();
-      if (col->getBroadphaseHandle()->m_collisionFilterGroup ==
-          int(CollisionGroup::Noncollidable)) {
-        // The collider child is an aligned compound or single shape
-        btTransform identity;
-        identity.setIdentity();
-        bFixedObjectShape_.get()->addChildShape(identity,
-                                                col->getCollisionShape());
-      }
+      // By convention, fixed links in the URDF are assigned Noncollidable, and
+      // we then insert corresponding fixed rigid bodies with group Static.
+      // Collisions with a fixed rigid body are cheaper than collisions with a
+      // fixed link, due to problems with multibody sleeping behavior.
+      {
+        auto* col = mb->getBaseCollider();
+        if (col->getBroadphaseHandle()->m_collisionFilterGroup ==
+            int(CollisionGroup::Noncollidable)) {
+          // The collider child is an aligned compound or single shape
+          btTransform identity;
+          identity.setIdentity();
+          bFixedObjectShape_.get()->addChildShape(identity,
+                                                  col->getCollisionShape());
+        }
 
-      for (int m = 0; m < mb->getNumLinks(); m++) {
-        btMultiBodyLinkCollider* col = mb->getLink(m).m_collider;
-        if (col) {
-          if (col->getBroadphaseHandle()->m_collisionFilterGroup ==
-              int(CollisionGroup::Noncollidable)) {
-            bFixedObjectShape_.get()->addChildShape(col->getWorldTransform(),
-                                                    col->getCollisionShape());
+        for (int m = 0; m < mb->getNumLinks(); m++) {
+          btMultiBodyLinkCollider* col = mb->getLink(m).m_collider;
+          if (col) {
+            if (col->getBroadphaseHandle()->m_collisionFilterGroup ==
+                int(CollisionGroup::Noncollidable)) {
+              bFixedObjectShape_.get()->addChildShape(col->getWorldTransform(),
+                                                      col->getCollisionShape());
+            }
           }
         }
-      }
 
-      if (bFixedObjectShape_.get()->getNumChildShapes()) {
-        btRigidBody::btRigidBodyConstructionInfo info =
-            btRigidBody::btRigidBodyConstructionInfo(0.f, nullptr,
-                                                     bFixedObjectShape_.get());
-        bFixedObjectRigidBody_ = std::make_unique<btRigidBody>(info);
-        BulletDebugManager::get().mapCollisionObjectTo(
-            bFixedObjectRigidBody_.get(),
-            "URDF, " + u2b.getModel()->m_name + ", fixed body");
-        bWorld_->addRigidBody(
-            bFixedObjectRigidBody_.get(), int(CollisionGroup::Static),
-            CollisionGroupHelper::getMaskForGroup(CollisionGroup::Static));
-        collisionObjToObjIds_->emplace(bFixedObjectRigidBody_.get(), objectId_);
-      } else {
-        bFixedObjectShape_ = nullptr;
+        if (bFixedObjectShape_.get()->getNumChildShapes()) {
+          btRigidBody::btRigidBodyConstructionInfo info =
+              btRigidBody::btRigidBodyConstructionInfo(
+                  0.f, nullptr, bFixedObjectShape_.get());
+          bFixedObjectRigidBody_ = std::make_unique<btRigidBody>(info);
+          BulletDebugManager::get().mapCollisionObjectTo(
+              bFixedObjectRigidBody_.get(),
+              "URDF, " + u2b.getModel()->m_name + ", fixed body");
+          bWorld_->addRigidBody(
+              bFixedObjectRigidBody_.get(), int(CollisionGroup::Static),
+              CollisionGroupHelper::getMaskForGroup(CollisionGroup::Static));
+          collisionObjToObjIds_->emplace(bFixedObjectRigidBody_.get(),
+                                         objectId_);
+        } else {
+          bFixedObjectShape_ = nullptr;
+        }
       }
     }
 

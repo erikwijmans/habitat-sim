@@ -37,6 +37,7 @@ enum class CollisionGroup {
 
 class CollisionGroupHelper {
  public:
+   static bool disabled; 
   static int getMaskForGroup(CollisionGroup group);
 };
 
